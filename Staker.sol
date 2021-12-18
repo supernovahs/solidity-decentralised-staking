@@ -8,7 +8,7 @@ contract Staker {
   ExampleExternalContract public exampleExternalContract;
   mapping(address=>uint) public balances;
   uint256 public constant threshold= 1 ether;
-  uint256 public deadline= block.timestamp + 100 seconds;
+  uint256 public deadline= block.timestamp + 50 seconds;
   event Stake(address,uint256);
   bool public openForWithdraw;
   
@@ -16,32 +16,57 @@ contract Staker {
   constructor(address exampleExternalContractAddress) public {
       exampleExternalContract = ExampleExternalContract(exampleExternalContractAddress);
   }
-  function stake() public  payable{
-    balances[msg.sender] ++;
+  function stake() public Timeover payable{
+    balances[msg.sender] +=msg.value;
     emit Stake(msg.sender,msg.value);
   } 
-  function withdraw(address payable) public {
-    
-    openForWithdraw= true;
+
+  modifier Timeover() {
+    require(block.timestamp<deadline,"timeover");
+    _;
   }
 
-  function execute() public {
-    require(block.timestamp>deadline);
+@ I want to withdraw to the same person who deposited the money, disallowing other people
+@When I try to withdraw funds to different account, it does not withdraw, which is what I want, but then if I try to withdraw to the depositor account
+@it shows error Error: VM Exception while processing transaction: reverted with panic code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)
+@And if I withdraw to depositor account before trying to withdraw to other account, it works!!
+  function withdraw(address payable _to)  public {
+    require(openForWithdraw == true);
+    _to.transfer(balances[_to]);
+    balances[msg.sender]-=address(this).balance;
+  }
+
+  receive() external payable {
+    stake();
+  }
+  modifier Maxcall() {
+    require(i<1,"maxcalls done");
+    _;
+  }
+  uint8 i=0;
+  function execute() public Maxcall{
     if (address(this).balance >= threshold){
+      i++;
       exampleExternalContract.complete{value:address(this).balance}();
 
-    }
-    else if (address(this).balance <threshold) {
-      bool openForWithdraw= true; 
-
+      
     }
 
-
+    else if (block.timestamp >deadline) {
+      i++; 
+      openForWithdraw = true;
     }
+    
+      
+  }
+    
+
+  
     function timeLeft() public view returns(uint) {
       return (deadline- block.timestamp);
-  }
+    }
 
+    
 
 
   // Collect funds in a payable `stake()` function and track individual `balances` with a mapping:
