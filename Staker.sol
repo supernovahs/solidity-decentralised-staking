@@ -1,5 +1,5 @@
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
-
 
 import "./ExampleExternalContract.sol";
 
@@ -8,7 +8,7 @@ contract Staker {
   ExampleExternalContract public exampleExternalContract;
   mapping(address=>uint) public balances;
   uint256 public constant threshold= 1 ether;
-  uint256 public deadline= block.timestamp + 50 seconds;
+  uint256 public deadline= block.timestamp + 90 hours;
   event Stake(address,uint256);
   bool public openForWithdraw;
   
@@ -26,14 +26,16 @@ contract Staker {
     _;
   }
 
-@ I want to withdraw to the same person who deposited the money, disallowing other people
-@When I try to withdraw funds to different account, it does not withdraw, which is what I want, but then if I try to withdraw to the depositor account
-@it shows error Error: VM Exception while processing transaction: reverted with panic code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)
-@And if I withdraw to depositor account before trying to withdraw to other account, it works!!
-  function withdraw(address payable _to)  public {
+
+  function withdraw(address payable _to)  notCompleted public {
     require(openForWithdraw == true);
     _to.transfer(balances[_to]);
-    balances[msg.sender]-=address(this).balance;
+    balances[msg.sender]--;
+  }
+
+  modifier notCompleted() {
+    require(exampleExternalContract.completed()==false,"Transfer to contract completed already");
+    _;
   }
 
   receive() external payable {
@@ -44,7 +46,7 @@ contract Staker {
     _;
   }
   uint8 i=0;
-  function execute() public Maxcall{
+  function execute() public notCompleted Maxcall{
     if (address(this).balance >= threshold){
       i++;
       exampleExternalContract.complete{value:address(this).balance}();
